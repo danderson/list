@@ -675,8 +675,7 @@ mil.by
 // second-level domain, but it's being used as one (see www.google.com.by and
 // www.yahoo.com.by, for example), so we list it here for safety's sake.
 com.by
-
-// http://hoster.by/
+// http://hoster.by/ offers 3rd level domains in this suffix.
 of.by
 
 // bz : https://en.wikipedia.org/wiki/.bz
