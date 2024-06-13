@@ -136,7 +136,11 @@ func (p *parser) consumeBlock() {
 	// Not a suffix block, so this is a comment block, possibly with
 	// embedded section markers.
 
-	linesConsumed := 0
+	var (
+		linesConsumed = 0
+		foundComments = false
+		foundSections = false
+	)
 
 	// maybeOutputComment outputs a Comment block, if there are
 	// accumulated comment lines to output.
@@ -156,6 +160,7 @@ func (p *parser) consumeBlock() {
 		}
 		p.addBlock(block)
 		linesConsumed = endLine
+		foundComments = true
 	}
 
 	for i, line := range p.lines {
@@ -166,6 +171,7 @@ func (p *parser) consumeBlock() {
 		maybeOutputComment(i)
 
 		// Current line looks like a section marker.
+		foundSections = true
 		p.consumeSectionMarker(Source{
 			StartLine: p.blockStart + i,
 			EndLine:   p.blockStart + i,
@@ -177,6 +183,12 @@ func (p *parser) consumeBlock() {
 	// There might be a final bit of comments that haven't been
 	// consumed yet.
 	maybeOutputComment(len(p.lines))
+
+	// In a correct PSL file, one block should only produce comments
+	// XOR sections.
+	if foundComments && foundSections {
+		p.addError(MixedCommentsAndSectionMarkers{p.blockSource()})
+	}
 }
 
 const sectionMarker = "// ==="
