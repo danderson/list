@@ -58,6 +58,28 @@ func (e UnknownSectionMarker) Error() string {
 	return fmt.Sprintf("unknown kind of section marker %q at %s", trimComment(e.Line.Raw), e.Line.LocationString())
 }
 
+// MixedCommentsAndSectionMarkers reports that a block contains both
+// ordinary top-level comments and section marker lines
+// (e.g. "===BEGIN ICANN DOMAINS==="). Section markers should be alone
+// in a separate block.
+type MixedCommentsAndSectionMarkers struct {
+	Lines Source
+}
+
+func (e MixedCommentsAndSectionMarkers) Error() string {
+	return fmt.Sprintf("invalid comment block with mixed freeform comments and section markers at %s", e.Lines.LocationString())
+}
+
+// UnterminatedSectionMarker reports that a section marker is missing
+// the required trailing "===", e.g. "===BEGIN ICANN DOMAINS".
+type UnterminatedSectionMarker struct {
+	Line Source
+}
+
+func (e UnterminatedSectionMarker) Error() string {
+	return fmt.Sprintf(`section marker %q at %s is missing trailing "==="`, trimComment(e.Line.Raw), e.Line.LocationString())
+}
+
 // MissingEntityName reports that a block of suffixes does not have a
 // parseable owner name in its header comment.
 type MissingEntityName struct {
