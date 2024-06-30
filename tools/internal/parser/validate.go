@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -206,10 +205,6 @@ func (p *parser) requireSortedPrivateSection() {
 		// Superblocks can contain many suffixes. Move entire
 		// superblocks as one.
 		if len(toMove.Suffixes) > 1 {
-			err.EditScript = append(err.EditScript, MoveSuffixBlock{
-				Name:        fmt.Sprintf(`%s (all blocks until "concludes ..." comment)`, toMove.Name),
-				InsertAfter: insertAfter,
-			})
 		} else {
 			block := toMove.Suffixes[0]
 			err.EditScript = append(err.EditScript, MoveSuffixBlock{

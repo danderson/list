@@ -73,7 +73,7 @@ func (e SectionInSuffixBlock) Error() string {
 // UnclosedSectionError reports that a file section was not closed
 // properly before EOF.
 type UnclosedSectionError struct {
-	Start StartSection // The unpaired section start
+	*Section
 }
 
 func (e UnclosedSectionError) Error() string {
@@ -84,8 +84,9 @@ func (e UnclosedSectionError) Error() string {
 // while already within a section, which the PSL format does not
 // allow.
 type NestedSectionError struct {
-	Outer StartSection
-	Inner StartSection
+	Source
+
+	Section *Section
 }
 
 func (e NestedSectionError) Error() string {
@@ -95,7 +96,9 @@ func (e NestedSectionError) Error() string {
 // UnstartedSectionError reports that a file section end marker was
 // found without a corresponding start.
 type UnstartedSectionError struct {
-	End EndSection
+	Source
+
+	Name string
 }
 
 func (e UnstartedSectionError) Error() string {
@@ -105,8 +108,10 @@ func (e UnstartedSectionError) Error() string {
 // MismatchedSectionError reports that a file section was started
 // under one name but ended under another.
 type MismatchedSectionError struct {
-	Start StartSection
-	End   EndSection
+	Source
+
+	EndName string
+	Section *Section
 }
 
 func (e MismatchedSectionError) Error() string {
@@ -127,11 +132,11 @@ func (e UnknownSectionMarker) Error() string {
 // UnterminatedSectionMarker reports that a section marker is missing
 // the required trailing "===", e.g. "===BEGIN ICANN DOMAINS".
 type UnterminatedSectionMarker struct {
-	Line Source
+	Source
 }
 
 func (e UnterminatedSectionMarker) Error() string {
-	return fmt.Sprintf(`section marker %q at %s is missing trailing "==="`, e.Line.Text(), e.Line.LocationString())
+	return fmt.Sprintf(`section marker %q at %s is missing trailing "==="`, e.Text(), e.LocationString())
 }
 
 // MissingEntityName reports that a block of suffixes does not have a

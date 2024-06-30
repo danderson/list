@@ -50,6 +50,10 @@ func (s Source) Text() string {
 	return strings.Join(s.lines, "\n")
 }
 
+func (s Source) NumLines() int {
+	return len(s.lines)
+}
+
 // LocationString returns a short string describing the source
 // location.
 func (s Source) LocationString() string {
@@ -82,86 +86,77 @@ func (s Source) slice(startLine, endLine int) Source {
 		panic("invalid input to slice")
 	}
 	return Source{
-		lines:      s.lines[startLine:endLine],
+		// In addition to taking the requested slice, also cap the
+		// capacity of the returned slice. This means that if anything
+		// later on tries to append() here, we won't stomp over what
+		// other slices of the source code see.
+		lines:      s.lines[startLine:endLine:endLine],
 		lineOffset: s.lineOffset + startLine,
 	}
 }
 
-// line returns the nth line of s.
-func (s Source) line(n int) Source {
-	return s.slice(n, n+1)
+func (s Source) first() Source {
+	return s.slice(0, 1)
 }
 
-// lineSources slices s into one Source per line.
-func (s Source) lineSources() []Source {
-	if len(s.lines) == 1 {
-		return []Source{s}
-	}
+func (s Source) last() Source {
+	return s.slice(len(s.lines)-1, len(s.lines))
+}
 
-	ret := make([]Source, len(s.lines))
-	for i := range s.lines {
-		ret[i] = s.slice(i, i+1)
-	}
+func (s Source) empty() bool {
+	return len(s.lines) == 0
+}
+
+func (s *Source) takeN(n int) Source {
+	var ret Source
+	ret, *s = s.slice(0, n), s.slice(n, len(s.lines))
 	return ret
 }
 
-// cut slices s at the first cut line, as determined by cutHere. It
-// returns two Source blocks: the part of s before the cut line, and
-// the rest of s including the cut line. The found result reports
-// whether a cut was found. If s does not contain a cut line, cut
-// returns s, <invalid>, false.
-func (s Source) cut(cutHere func(Source) bool) (before Source, rest Source, found bool) {
-	for i := range s.lines {
-		if cutHere(s.line(i)) {
-			return s.slice(0, i), s.slice(i, len(s.lines)), true
-		}
-	}
-	return s, Source{}, false
+func (s *Source) takeOne() Source {
+	return s.takeN(1)
 }
 
-// split slices s into all sub-blocks separated by lines identified by
-// isSeparator, and returns a slice of the non-empty blocks between
-// those separators.
-//
-// Note the semantics are different from strings.Split: sub-blocks
-// that contain no lines are not returned. This works better for what
-// the PSL format needs.
-func (s Source) split(isSeparator func(line Source) bool) []Source {
-	ret := []Source{}
-	s.forEachRun(isSeparator, func(block Source, isSep bool) {
-		if isSep {
-			return
+func (s *Source) tryTakeOne() (Source, bool) {
+	if s.empty() {
+		return Source{}, false
+	}
+	return s.takeOne(), true
+}
+
+func (s *Source) takeWhile(fn func(string) bool) Source {
+	for i, ln := range s.lines {
+		if !fn(ln) {
+			return s.takeN(i)
 		}
-		ret = append(ret, block)
-	})
+	}
+
+	var ret Source
+	ret, *s = *s, ret
 	return ret
 }
 
-// forEachRun calls processBlock for every run of consecutive lines
-// where classify returns the same result.
-//
-// For example, if classify returns true on lines starting with "//",
-// processBlock gets called with alternating blocks consisting of only
-// comments, or only non-comments.
-func (s Source) forEachRun(classify func(line Source) bool, processBlock func(block Source, classifyResult bool)) {
-	if len(s.lines) == 0 {
-		return
-	}
+func (s *Source) takeWhileNot(fn func(string) bool) Source {
+	return s.takeWhile(func(str string) bool { return !fn(str) })
+}
 
-	currentBlock := 0
-	currentVal := classify(s.line(0))
-	for i := range s.lines[1:] {
-		line := i + 1
-		v := classify(s.line(line))
-		if v != currentVal {
-			processBlock(s.slice(currentBlock, line), currentVal)
-			currentVal = v
-			currentBlock = line
+func (s *Source) takeUntil(fn func(string) bool) (Source, bool) {
+	for i, ln := range s.lines {
+		if fn(ln) {
+			return s.takeN(i + 1), true
 		}
 	}
-	if currentBlock != len(s.lines) {
-		processBlock(s.slice(currentBlock, len(s.lines)), currentVal)
+
+	var ret Source
+	ret, *s = *s, ret
+	return ret, false
+}
+
+func (s *Source) append(o Source) {
+	if s.lineOffset+s.NumLines() != o.lineOffset {
+		panic("invalid append of non-adjacent Sources")
 	}
+	s.lines = append(s.lines, o.lines...)
 }
 
 const (
