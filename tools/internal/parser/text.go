@@ -86,44 +86,49 @@ func (s Source) slice(startLine, endLine int) Source {
 		panic("invalid input to slice")
 	}
 	return Source{
-		// In addition to taking the requested slice, also cap the
-		// capacity of the returned slice. This means that if anything
-		// later on tries to append() here, we won't stomp over what
-		// other slices of the source code see.
-		lines:      s.lines[startLine:endLine:endLine],
+		lines:      s.lines[startLine:endLine],
 		lineOffset: s.lineOffset + startLine,
 	}
 }
 
+// first returns the first line of s.
+// If s is empty, first panics.
 func (s Source) first() Source {
 	return s.slice(0, 1)
 }
 
-func (s Source) last() Source {
-	return s.slice(len(s.lines)-1, len(s.lines))
-}
+// XXXXX needed?
+// // last returns the last line of s.
+// // If s is empty, last panics.
+// func (s Source) last() Source {
+// 	return s.slice(len(s.lines)-1, len(s.lines))
+// }
 
+// empty reports whether s contains any lines.
 func (s Source) empty() bool {
 	return len(s.lines) == 0
 }
 
+// takeN removes n lines from s and returns them as a new Source.
+// If s contains fewer than n lines, takeN panics.
 func (s *Source) takeN(n int) Source {
-	var ret Source
-	ret, *s = s.slice(0, n), s.slice(n, len(s.lines))
+	ret := Source{
+		lines:      s.lines[:n],
+		lineOffset: s.lineOffset,
+	}
+	s.lines = s.lines[n:]
+	s.lineOffset += n
 	return ret
 }
 
+// takeOne removes one line from s and returns it as a new Source.
+// if s is empty, takeOne panics.
 func (s *Source) takeOne() Source {
 	return s.takeN(1)
 }
 
-func (s *Source) tryTakeOne() (Source, bool) {
-	if s.empty() {
-		return Source{}, false
-	}
-	return s.takeOne(), true
-}
-
+// takeWhile removes the (possibly empty) run of initial lines from s
+// where fn(line) is true, and returns them as a new Source.
 func (s *Source) takeWhile(fn func(string) bool) Source {
 	for i, ln := range s.lines {
 		if !fn(ln) {
@@ -131,32 +136,33 @@ func (s *Source) takeWhile(fn func(string) bool) Source {
 		}
 	}
 
-	var ret Source
-	ret, *s = *s, ret
-	return ret
+	// No match, take all.
+	return s.takeN(len(s.lines))
 }
 
 func (s *Source) takeWhileNot(fn func(string) bool) Source {
-	return s.takeWhile(func(str string) bool { return !fn(str) })
+	return s.takeWhile(func(s string) bool { return !fn(s) })
 }
 
-func (s *Source) takeUntil(fn func(string) bool) (Source, bool) {
-	for i, ln := range s.lines {
-		if fn(ln) {
-			return s.takeN(i + 1), true
-		}
-	}
-
-	var ret Source
-	ret, *s = *s, ret
-	return ret, false
-}
-
+// append extends s with the lines of o.
+// The two Sources must directly follow each other in the original
+// source text. If s and o do not represent a single continuous run of
+// lines, append panics.
 func (s *Source) append(o Source) {
 	if s.lineOffset+s.NumLines() != o.lineOffset {
 		panic("invalid append of non-adjacent Sources")
 	}
-	s.lines = append(s.lines, o.lines...)
+	// Go slice/capacity semantics are a footgun here: we construct
+	// Sources by taking sub-slices of the overall input, which menas
+	// a lot of these slices have extra capacity, which contain later
+	// lines of the original input. If we just append naively here, we
+	// might overwrite those extra lines and corrupt the input.
+	//
+	// To avoid this, make an explicit copy here.
+	newLines := make([]string, 0, len(s.lines)+len(o.lines))
+	newLines = append(newLines, s.lines...)
+	newLines = append(newLines, o.lines...)
+	s.lines = newLines
 }
 
 const (

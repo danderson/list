@@ -77,7 +77,7 @@ type UnclosedSectionError struct {
 }
 
 func (e UnclosedSectionError) Error() string {
-	return fmt.Sprintf("section %q started at %s, but is never closed", e.Start.Name, e.Start.LocationString())
+	return fmt.Sprintf("section %q at %s, but is never closed", e.Name, e.LocationString())
 }
 
 // NestedSectionError reports that a file section is being started
@@ -86,11 +86,12 @@ func (e UnclosedSectionError) Error() string {
 type NestedSectionError struct {
 	Source
 
+	Name    string
 	Section *Section
 }
 
 func (e NestedSectionError) Error() string {
-	return fmt.Sprintf("new section %q started at %s while still in section %q (started at %s)", e.Inner.Name, e.Inner.LocationString(), e.Outer.Name, e.Outer.LocationString())
+	return fmt.Sprintf("new section %q started at %s while still in section %q (started at %s)", e.Name, e.LocationString(), e.Section.Name, e.Section.LocationString())
 }
 
 // UnstartedSectionError reports that a file section end marker was
@@ -102,7 +103,7 @@ type UnstartedSectionError struct {
 }
 
 func (e UnstartedSectionError) Error() string {
-	return fmt.Sprintf("section %q closed at %s but was not started", e.End.Name, e.End.LocationString())
+	return fmt.Sprintf("section %q closed at %s but was not started", e.Name, e.LocationString())
 }
 
 // MismatchedSectionError reports that a file section was started
@@ -115,7 +116,7 @@ type MismatchedSectionError struct {
 }
 
 func (e MismatchedSectionError) Error() string {
-	return fmt.Sprintf("section %q closed at %s while in section %q (started at %s)", e.End.Name, e.End.LocationString(), e.Start.Name, e.Start.LocationString())
+	return fmt.Sprintf("section %q closed at %s while in section %q (started at %s)", e.EndName, e.LocationString(), e.Section.Name, e.Section.LocationString())
 }
 
 // UnknownSectionMarker reports that a line looks like a file section
@@ -202,4 +203,74 @@ func (e SuffixBlocksInWrongPlace) Error() string {
 	}
 
 	return ret.String()
+}
+
+type ExceptionAndWildcardSuffixError struct {
+	Source
+}
+
+func (e ExceptionAndWildcardSuffixError) Error() string {
+	return fmt.Sprintf("suffix %q at %s is both a wildcard exception and a wildcard, which is not allowed", e.Text(), e.LocationString())
+}
+
+type ExceptionNotDirectlyFollowingBaseError struct {
+	Source
+}
+
+func (e ExceptionNotDirectlyFollowingBaseError) Error() string {
+	return fmt.Sprintf("exception %q at %s must directly follow the suffix it's modifying", e.Text(), e.LocationString())
+}
+
+type InvalidExceptionError struct {
+	Source
+	Parent *Suffix
+}
+
+func (e InvalidExceptionError) Error() string {
+	return fmt.Sprintf("exception %q at %s is not a valid exception to the wildcard %q", e.Text(), e.LocationString(), e.Parent.Text())
+}
+
+type DuplicateExceptionError struct {
+	Source
+}
+
+func (e DuplicateExceptionError) Error() string {
+	return fmt.Sprintf("duplicate exception %q at %s", e.Text(), e.LocationString())
+}
+
+// MismatchedGroupError reports that a file group was started
+// under one name but ended under another.
+type MismatchedGroupError struct {
+	Source
+
+	EndName string
+	Group   *Group
+}
+
+func (e MismatchedGroupError) Error() string {
+	return fmt.Sprintf("group %q closed at %s while in group %q (started at %s)", e.EndName, e.LocationString(), e.Group.Name, e.Group.LocationString())
+}
+
+// UnclosedGroupError reports that a file group was not closed
+// properly before EOF.
+type UnclosedGroupError struct {
+	*Group
+}
+
+func (e UnclosedGroupError) Error() string {
+	return fmt.Sprintf("group %q at %s is never closed", e.Name, e.LocationString())
+}
+
+// NestedGroupError reports that a file group is being started
+// while already within a group, which the PSL format does not
+// allow.
+type NestedGroupError struct {
+	Source
+
+	Name  string
+	Group *Group
+}
+
+func (e NestedGroupError) Error() string {
+	return fmt.Sprintf("new group %q started at %s while still in group %q (started at %s)", e.Name, e.LocationString(), e.Group.Name, e.Group.LocationString())
 }
