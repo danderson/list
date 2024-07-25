@@ -6709,7 +6709,7 @@ org.zw
 
 // newGTLDs
 
-// List of new gTLDs imported from https://www.icann.org/resources/registries/gtlds/v2/gtlds.json on 2024-05-04T15:12:50Z
+// List of new gTLDs imported from https://www.icann.org/resources/registries/gtlds/v2/gtlds.json on 2024-07-25T15:02:36Z
 // This list is auto-generated, don't edit it manually.
 // aaa : American Automobile Association, Inc.
 // https://www.iana.org/domains/root/db/aaa.html
@@ -8975,7 +8975,7 @@ lotte
 // https://www.iana.org/domains/root/db/lotto.html
 lotto
 
-// love : Merchant Law Group LLP
+// love : Waterford Limited
 // https://www.iana.org/domains/root/db/love.html
 love
 
@@ -9226,10 +9226,6 @@ nab
 // nagoya : GMO Registry, Inc.
 // https://www.iana.org/domains/root/db/nagoya.html
 nagoya
-
-// natura : NATURA COSMÉTICOS S.A.
-// https://www.iana.org/domains/root/db/natura.html
-natura
 
 // navy : Dog Beach, LLC
 // https://www.iana.org/domains/root/db/navy.html
@@ -10003,10 +9999,6 @@ shangrila
 // https://www.iana.org/domains/root/db/sharp.html
 sharp
 
-// shaw : Shaw Cablesystems G.P.
-// https://www.iana.org/domains/root/db/shaw.html
-shaw
-
 // shell : Shell Information Technology International Inc
 // https://www.iana.org/domains/root/db/shell.html
 shell
@@ -10499,7 +10491,7 @@ ups
 // https://www.iana.org/domains/root/db/vacations.html
 vacations
 
-// vana : Internet Naming Company LLC
+// vana : D3 Registry LLC
 // https://www.iana.org/domains/root/db/vana.html
 vana
 
