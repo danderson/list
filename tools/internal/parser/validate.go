@@ -1,5 +1,7 @@
 package parser
 
+import "github.com/creachadair/mds/mapset"
+
 // ValidateOffline runs offline validations on a parsed PSL.
 func ValidateOffline(l *List) []error {
 	var ret []error
@@ -10,6 +12,8 @@ func ValidateOffline(l *List) []error {
 			break
 		}
 	}
+	validateExpectedSections(l)
+	validateSuffixUniqueness(l)
 
 	return ret
 }
@@ -35,4 +39,71 @@ func validateEntityMetadata(block Block) []error {
 		}
 	}
 	return ret
+}
+
+// validateExpectedSections verifies that the two top-level sections
+// (ICANN and private domains) exist, are not duplicated, and that no
+// other sections are present.
+func validateExpectedSections(block Block) (errs []error) {
+	// Use an ordered set for the wanted sections, so that we can
+	// check section names in O(1) but also report missing sections in
+	// a deterministic order.
+	wanted := mapset.New("ICANN DOMAINS", "PRIVATE DOMAINS")
+	found := map[string]*Section{}
+	for _, section := range BlocksOfType[*Section](block) {
+		if !wanted.Has(section.Name) {
+			errs = append(errs, ErrUnknownSection{section})
+		} else if other, ok := found[section.Name]; ok {
+			errs = append(errs, ErrDuplicateSection{section, other})
+		} else {
+			found[section.Name] = section
+		}
+	}
+
+	for _, name := range wanted.Slice() {
+		if _, ok := found[name]; !ok {
+			errs = append(errs, ErrMissingSection{name})
+		}
+	}
+
+	return errs
+}
+
+// validateSuffixUniqueness verifies that suffixes only appear once
+// each.
+func validateSuffixUniqueness(block Block) (errs []error) {
+	suffixes := map[string]*Suffix{}    // domain.Name.String() -> Suffix
+	wildcards := map[string]*Wildcard{} // base domain.Name.String() -> Wildcard
+
+	for _, suffix := range BlocksOfType[*Suffix](block) {
+		name := suffix.Domain.String()
+		if other, ok := suffixes[name]; ok {
+			errs = append(errs, ErrDuplicateSuffix{name, suffix, other})
+		} else {
+			suffixes[name] = suffix
+		}
+	}
+
+	for _, wildcard := range BlocksOfType[*Wildcard](block) {
+		name := wildcard.Domain.String()
+		if other, ok := wildcards[name]; ok {
+			errs = append(errs, ErrDuplicateSuffix{"*." + name, wildcard, other})
+		} else {
+			wildcards[name] = wildcard
+		}
+
+		for _, exc := range wildcard.Exceptions {
+			fqdn, err := wildcard.Domain.AddPrefix(exc)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			name := fqdn.String()
+			if suffix, ok := suffixes[name]; ok {
+				errs = append(errs, ErrConflictingSuffixAndException{suffix, wildcard})
+			}
+		}
+	}
+
+	return errs
 }

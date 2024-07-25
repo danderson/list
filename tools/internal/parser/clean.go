@@ -2,9 +2,11 @@ package parser
 
 import (
 	"fmt"
+	"log"
 	"slices"
 	"strings"
 
+	"github.com/creachadair/mds/slice"
 	"github.com/publicsuffix/list/tools/internal/domain"
 )
 
@@ -54,7 +56,7 @@ func cleanBlock(b Block) []error {
 		ret = append(ret, sortSuffixes(v)...)
 		rewriteSuffixesMetadata(v)
 	case *Wildcard:
-		slices.SortFunc(v.Exceptions, domain.Label.Compare)
+		cleanWildcard(v)
 	case *Comment, *Suffix:
 		// No cleaning required
 	default:
@@ -62,6 +64,12 @@ func cleanBlock(b Block) []error {
 	}
 
 	return ret
+}
+
+func cleanWildcard(w *Wildcard) {
+	// Sort and deduplicate exception domains.
+	slices.SortFunc(w.Exceptions, domain.Label.Compare)
+	w.Exceptions = slice.Dedup(w.Exceptions)
 }
 
 func sortSection(s *Section) []error {
@@ -224,6 +232,9 @@ func sortSuffixes(s *Suffixes) []error {
 		prevGroupEnd   Block    // last suffix/wildcard of previous group
 		prevComment    *Comment // last Comment seen, for error reporting
 		thisGroupStart int
+		// We have to construct a new output slice, because the
+		// deduplicating sort below might shrink s.Blocks.
+		out = make([]Block, 0, len(s.Blocks))
 	)
 
 	sortAndCheck := func(group []Block) {
@@ -231,7 +242,14 @@ func sortSuffixes(s *Suffixes) []error {
 			return
 		}
 
+		// Sort and deduplicate. Within a single group inside a suffix
+		// block, duplicate suffixes are semantically equivalent so
+		// it's safe to remove dupes.
 		slices.SortFunc(group, compareSuffixAndWildcard)
+		group = slices.CompactFunc(group, func(a, b Block) bool {
+			return compareSuffixAndWildcard(a, b) == 0
+		})
+		out = append(out, group...)
 
 		if prevGroupEnd == nil {
 			// First group.
@@ -258,6 +276,7 @@ func sortSuffixes(s *Suffixes) []error {
 				sortAndCheck(group)
 				prevComment = v
 			}
+			out = append(out, v)
 			thisGroupStart = i + 1
 		default:
 			panic("unknown ast node")
@@ -267,8 +286,7 @@ func sortSuffixes(s *Suffixes) []error {
 		sortAndCheck(s.Blocks[thisGroupStart:])
 	}
 
-	// Unlike in sortSection, no need to construct a new s.Blocks,
-	// we've sorted the blocks in-place.
+	s.Blocks = out
 
 	return errs
 }
@@ -297,18 +315,23 @@ func compareSuffixAndWildcard(a, b Block) int {
 	default:
 		panic(fmt.Sprintf("can't compare non-suffix type %T", b))
 	}
+	log.Printf("compare: %v, %v, %s, %s", a, b, da, db)
 
 	if ret := da.Compare(db); ret != 0 {
+		log.Printf("result: %s<>%s = %d", da, db, ret)
 		return ret
 	}
 
 	// Strings are equal. If one of the inputs is a wildcard, it goes
 	// after any non-wildcards.
 	if wilda == wildb {
+		log.Printf("result: 0")
 		return 0
 	} else if wilda {
+		log.Printf("result: +1 (1st is wildcard)")
 		return +1
 	} else {
+		log.Printf("result: -1 (2nd is wildcard)")
 		return -1
 	}
 }
